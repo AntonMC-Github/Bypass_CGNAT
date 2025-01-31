@@ -253,7 +253,7 @@ create_client_config () {
   echo -e "${LCYAN}$PK_FOR_SERVER${NC}"
   echo ""
   echo -en "${YELLOW}Starting Wireguard${NC}..."
-  wg-quick up wgo
+  wg-quick up wg0
   echo -e "[${GREEN}Done${NC}]"
   echo -e "${YELLOW}Waiting for connection${NC}..."
   while ! ping -c 1 -W 1 $WG_SERVER_IP > /dev/null; do
