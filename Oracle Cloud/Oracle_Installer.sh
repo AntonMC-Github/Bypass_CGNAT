@@ -29,7 +29,6 @@ MAGEN='\033[1;35m'
 
 stop_wireguard () {
   echo -en "${YELLOW}Stopping any current wireguard services${NC}..."
-  service wg-quick@wg0 stop
   wg-quick down wg0 2> /dev/null
   echo -e "[${GREEN}Done${NC}]"
 }
@@ -204,7 +203,7 @@ create_server_config () {
   echo -e "${GREEN}Wireguard Config file created at $WGCONFLOC${NC}"
   echo ""
   echo -en "${YELLOW}Starting Wireguard${NC}..."
-  service wg-quick@wg0 start
+  wg-quick up wgo
   echo -e "[${GREEN}Done${NC}]"
   echo -e "${YELLOW}Waiting for connection${NC}..."
   while ! ping -c 1 -W 1 $WG_CLIENT_IP > /dev/null 2>&1; do
@@ -213,7 +212,7 @@ create_server_config () {
   done
   echo -e "[${GREEN}Connection Established${NC}]"
   echo -en "${YELLOW}Enabling Wireguard to start across reboots${NC}..."
-  service wg-quick@wg0 start
+  wg-quick up wgo
   echo -e "[${GREEN}Done${NC}]"
   echo "Your wireguard tunnel should be set up now.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
 }
@@ -254,7 +253,7 @@ create_client_config () {
   echo -e "${LCYAN}$PK_FOR_SERVER${NC}"
   echo ""
   echo -en "${YELLOW}Starting Wireguard${NC}..."
-  service wg-quick@wg0 start
+  wg-quick up wgo
   echo -e "[${GREEN}Done${NC}]"
   echo -e "${YELLOW}Waiting for connection${NC}..."
   while ! ping -c 1 -W 1 $WG_SERVER_IP > /dev/null; do
@@ -264,7 +263,7 @@ create_client_config () {
   echo -e "[${GREEN}Connection Established${NC}]"
   echo ""
   echo -en "${YELLOW}Enabling Wireguard to start across reboots${NC}..."
-  service wg-quick@wg0 start
+  wg-quick up wgo
   echo -e "[${GREEN}Done${NC}]"
 }
 
@@ -380,7 +379,7 @@ ask_firewall () {
 
 start_wireguard () {
   echo -en "${YELLOW}Starting wireguard services${NC}..."
-  service wg-quick@wg0 start
+  wg-quick up wgo
   echo -e "[${GREEN}Done${NC}]"
 }
 
