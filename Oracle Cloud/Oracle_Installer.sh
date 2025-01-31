@@ -125,7 +125,7 @@ create_keys () {
   
   if [[ -f "$PRIVATE_KEY_FILE" && -f "$PUBLIC_KEY_FILE" ]]; then
     echo -e "[${GREEN}Found existing keys${NC}]"
-    sudo cp "$PRIVATE_KEY_FILE" "$WGCONFLOC"
+    # sudo cp "$PRIVATE_KEY_FILE" "$WGCONFLOC"
     sudo cp "$PUBLIC_KEY_FILE" "$WGPUBKEY"
   else
     echo -e "[${YELLOW}No existing keys found, generating new keys${NC}]"
