@@ -126,7 +126,7 @@ create_keys () {
   if [[ -f "$PRIVATE_KEY_FILE" && -f "$PUBLIC_KEY_FILE" ]]; then
     echo -e "[${GREEN}Found existing keys${NC}]"
     umask 077 && printf "[Interface]\nPrivateKey = " | sudo tee "$WGCONFLOC" > /dev/null
-    sudo cp "$PRIVATE_KEY_FILE" "$WGCONFLOC"
+    sudo cat "$PRIVATE_KEY_FILE" | tee -a "$WGCONFLOC"
     sudo cp "$PUBLIC_KEY_FILE" "$WGPUBKEY"
   else
     echo -e "[${YELLOW}No existing keys found, generating new keys${NC}]"
