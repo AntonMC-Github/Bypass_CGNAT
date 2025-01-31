@@ -37,7 +37,8 @@ update_system () {
   echo -e "${YELLOW}Updating System${NC}..."
   apt update
   apt upgrade -y
-  apt-get install -y iputils-ping
+  apt install -y iputils-ping
+  apt install iproute2
   echo -e "[${GREEN}Done${NC}]"
 }
 
