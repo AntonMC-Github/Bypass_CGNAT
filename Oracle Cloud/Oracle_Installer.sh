@@ -38,7 +38,7 @@ update_system () {
   apt update
   apt upgrade -y
   apt install -y iputils-ping
-  apt install iproute2
+  apt install -y iproute2
   echo -e "[${GREEN}Done${NC}]"
 }
 
