@@ -29,7 +29,7 @@ MAGEN='\033[1;35m'
 
 stop_wireguard () {
   echo -en "${YELLOW}Stopping any current wireguard services${NC}..."
-  systemctl stop wg-quick@wg0 2> /dev/null
+  service wg-quick@wg0 stop
   wg-quick down wg0 2> /dev/null
   echo -e "[${GREEN}Done${NC}]"
 }
@@ -38,6 +38,7 @@ update_system () {
   echo -e "${YELLOW}Updating System${NC}..."
   apt update
   apt upgrade -y
+  apt-get install -y iputils-ping
   echo -e "[${GREEN}Done${NC}]"
 }
 
@@ -117,10 +118,21 @@ get_ips () {
 }
 
 create_keys () {
-  echo -en "${YELLOW}Creating new Private/Public Keys${NC}..."
-  umask 077 && printf "[Interface]\nPrivateKey = " | sudo tee $WGCONFLOC > /dev/null
-  sudo wg genkey | tee -a $WGCONFLOC | wg pubkey | sudo tee $WGPUBKEY > /dev/null
-  echo -e "[${GREEN}Done${NC}]"
+  echo -en "${YELLOW}Checking for existing Private/Public Keys in /home/root${NC}..."
+  
+  PRIVATE_KEY_FILE="/home/root/privatekey"
+  PUBLIC_KEY_FILE="/home/root/publickey"
+  
+  if [[ -f "$PRIVATE_KEY_FILE" && -f "$PUBLIC_KEY_FILE" ]]; then
+    echo -e "[${GREEN}Found existing keys${NC}]"
+    sudo cp "$PRIVATE_KEY_FILE" "$WGCONFLOC"
+    sudo cp "$PUBLIC_KEY_FILE" "$WGPUBKEY"
+  else
+    echo -e "[${YELLOW}No existing keys found, generating new keys${NC}]"
+    umask 077 && printf "[Interface]\nPrivateKey = " | sudo tee "$WGCONFLOC" > /dev/null
+    sudo wg genkey | tee "$PRIVATE_KEY_FILE" | tee -a "$WGCONFLOC" | wg pubkey | tee "$PUBLIC_KEY_FILE" | sudo tee "$WGPUBKEY" > /dev/null
+    echo -e "[${GREEN}Done${NC}]"
+  fi
 }
 
 create_server_config () {
@@ -192,7 +204,7 @@ create_server_config () {
   echo -e "${GREEN}Wireguard Config file created at $WGCONFLOC${NC}"
   echo ""
   echo -en "${YELLOW}Starting Wireguard${NC}..."
-  systemctl start wg-quick@wg0
+  service wg-quick@wg0 start
   echo -e "[${GREEN}Done${NC}]"
   echo -e "${YELLOW}Waiting for connection${NC}..."
   while ! ping -c 1 -W 1 $WG_CLIENT_IP > /dev/null 2>&1; do
@@ -201,7 +213,7 @@ create_server_config () {
   done
   echo -e "[${GREEN}Connection Established${NC}]"
   echo -en "${YELLOW}Enabling Wireguard to start across reboots${NC}..."
-  systemctl enable wg-quick@wg0 >/dev/null
+  service wg-quick@wg0 start
   echo -e "[${GREEN}Done${NC}]"
   echo "Your wireguard tunnel should be set up now.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
 }
@@ -221,12 +233,10 @@ create_client_config () {
     PORT=$(echo $i| cut -d'/' -f 1)
     PROT=$(echo $i| cut -d'/' -f 2)
     printf "IP Address of service using $PORT/$PROT (Just press Enter if using this server): "
-    read SVC_IP
-    if [[ -n $SVC_IP ]]; then
-      echo "PostUp = iptables -t nat -A PREROUTING -p $PROT --dport $PORT -j DNAT --to-destination $SVC_IP:$PORT; iptables -t nat -A POSTROUTING -p $PROT --dport $PORT -j MASQUERADE" >> $WGCONFLOC
-      echo "PostDown = iptables -t nat -D PREROUTING -p $PROT --dport $PORT -j DNAT --to-destination $SVC_IP:$PORT; iptables -t nat -D POSTROUTING -p $PROT --dport $PORT -j MASQUERADE" >> $WGCONFLOC
+      echo "PostUp = iptables -t nat -A PREROUTING -p $PROT --dport $PORT -j DNAT --to-destination 172.17.0.8:$PORT; iptables -t nat -A POSTROUTING -p $PROT --dport $PORT -j MASQUERADE" >> $WGCONFLOC
+      echo "PostDown = iptables -t nat -D PREROUTING -p $PROT --dport $PORT -j DNAT --to-destination 172.17.0.8:$PORT; iptables -t nat -D POSTROUTING -p $PROT --dport $PORT -j MASQUERADE" >> $WGCONFLOC
       echo "" >> $WGCONFLOC
-    fi
+
   done
   echo "[Peer]" >> $WGCONFLOC
   echo "PublicKey = $PUBKEY" >> $WGCONFLOC
@@ -244,7 +254,7 @@ create_client_config () {
   echo -e "${LCYAN}$PK_FOR_SERVER${NC}"
   echo ""
   echo -en "${YELLOW}Starting Wireguard${NC}..."
-  systemctl start wg-quick@wg0
+  service wg-quick@wg0 start
   echo -e "[${GREEN}Done${NC}]"
   echo -e "${YELLOW}Waiting for connection${NC}..."
   while ! ping -c 1 -W 1 $WG_SERVER_IP > /dev/null; do
@@ -254,7 +264,7 @@ create_client_config () {
   echo -e "[${GREEN}Connection Established${NC}]"
   echo ""
   echo -en "${YELLOW}Enabling Wireguard to start across reboots${NC}..."
-  systemctl enable wg-quick@wg0 >/dev/null
+  service wg-quick@wg0 start
   echo -e "[${GREEN}Done${NC}]"
 }
 
@@ -293,14 +303,7 @@ setup_firewall () {
   echo ""
   echo "  Do the rules look good (at the very least, you should see your ssh port) for activating?"
   echo ""
-  read -r -p $'  \e[36mActivate rules? [Y/n]\e[0m' UFW_ON
-  if [[ ! "$UFW_ON" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
-    echo "  Firewall not enabled"
-    echo -e "  You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
-    exit
-  else
-    ufw --force enable >/dev/null
-  fi
+  ufw --force enable >/dev/null
   echo -e "[${GREEN}ufw Configured${NC}]"
 }
 
@@ -370,20 +373,14 @@ ask_firewall () {
     clear_firewall
     setup_firewall
   else
-    read -r -p $'\e[36mWould you like this script to configure your firewall? [Y/n]\e[0m' UFW_YN
-    if [[ ! "$UFW_YN" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
-      echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
-      exit
-    else
       clear_firewall
       setup_firewall
-    fi
   fi
 }
 
 start_wireguard () {
   echo -en "${YELLOW}Starting wireguard services${NC}..."
-  systemctl start wg-quick@wg0 2> /dev/null
+  service wg-quick@wg0 start
   echo -e "[${GREEN}Done${NC}]"
 }
 
@@ -589,3 +586,6 @@ else
   ask_firewall
   script_complete
 fi
+
+
+
